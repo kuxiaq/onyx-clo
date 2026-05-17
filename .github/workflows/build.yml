@@ -1,0 +1,38 @@
+name: Build Kernel
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison flex libssl-dev libelf-dev git
+
+      - name: Setup Clang
+        run: |
+          mkdir -p clang
+          wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r530567.tar.gz -O clang.tar.gz
+          tar -xf clang.tar.gz -C clang
+
+      - name: Build kernel
+        run: |
+          export PATH=$PWD/clang/bin:$PATH
+          export ARCH=arm64
+          export CROSS_COMPILE=aarch64-linux-gnu-
+          make CC=clang gki_defconfig
+          make CC=clang -j$(nproc) Image.gz
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel
+          path: arch/arm64/boot/Image.gz
